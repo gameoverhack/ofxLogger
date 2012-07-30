@@ -41,11 +41,11 @@
 
 // logging levels
 enum LogLevel{
-	LOG_VERBOSE,
-	LOG_NOTICE,
-	LOG_WARNING,
-	LOG_ERROR,
-	LOG_FATAL_ERROR
+	_LOG_VERBOSE,
+	_LOG_NOTICE,
+	_LOG_WARNING,
+	_LOG_ERROR,
+	_LOG_FATAL
 };
 
 // logging options for fine grain control of log output
@@ -71,31 +71,22 @@ enum LogOption{
     #endif
 #endif
 
+#define LOG_VERBOSE _LOG_VERBOSE, typeid(this).name(), __func__, __LINE__
+#define LOG_NOTICE  _LOG_NOTICE, typeid(this).name(), __func__, __LINE__
+#define LOG_WARNING _LOG_WARNING, typeid(this).name(), __func__, __LINE__
+#define LOG_ERROR _LOG_ERROR, typeid(this).name(), __func__, __LINE__
+#define LOG_FATAL _LOG_FATAL, typeid(this).name(), __func__, __LINE__
+
+#define ofxLogNotice() ofxLog(LOG_NOTICE)
+#define ofxLogVerbose() ofxLog(LOG_VERBOSE)
+#define ofxLogWarning() ofxLog(LOG_WARNING)
+#define ofxLogFatal() ofxLog(LOG_FATAL)
+
 // helper defines for different log levels
-#define LOGGER                  ofxLoggerSingleton::Instance()
-#define SETLOGLEVEL(level)      ofxLoggerSingleton::Instance()->setLogLevel(level)
-#define SETLOGOPTIONS(options)  ofxLoggerSingleton::Instance()->setLogOptions(options)
-#define LOG(level, str)         ofxLoggerSingleton::Instance()->log(level, typeid(*this).name(), __func__, __LINE__, (str))
-#define LOG_ERROR(str)          LOG(LOG_ERROR, (str))
-#define LOG_WARNING(str)        LOG(LOG_WARNING, (str))
-#define LOG_NOTICE(str)         LOG(LOG_NOTICE, (str))
-#define LOG_VERBOSE(str)        LOG(LOG_VERBOSE, (str))
-
-#define CLOG(level)     ofxLoggerSingleton::Instance()->clog(level, typeid(*this).name(), __func__, __LINE__)
-#define CLOG_ERROR		CLOG(LOG_ERROR)
-#define CLOG_WARNING	CLOG(LOG_WARNING)
-#define CLOG_NOTICE     CLOG(LOG_NOTICE)
-#define CLOG_VERBOSE	CLOG(LOG_VERBOSE)
-
-#define LOG_OPEN_FILE	ofxLoggerSingleton::Instance()->openLogFile
-#define LOG_CLOSE_FILE	ofxLoggerSingleton::Instance()->closeLogFile()
-
-#define LOGTRICK_VERBOSE LOG_VERBOSE, typeid(this).name(), __func__, __LINE__
-#define LOG_INFO typeid(this).name(), __func__, __LINE__
 
 using namespace std;
 
-class ofxLogger {
+class ofxLogger{
 
 public:
 
@@ -111,22 +102,20 @@ public:
     
     // catch the << ostream function pointers such as std::endl and std::hex
     ofxLogger& operator<<(std::ostream& (*func)(std::ostream&)){
-        // check if it's the std::endl TODO: check if this is ok in VS - see: http://stackoverflow.com/questions/2319544/comparing-address-of-stdendl
+        // check if it's the std::endl 
+        // TODO: check if this is ok in VS - see: http://stackoverflow.com/questions/2319544/comparing-address-of-stdendl
         if(func == static_cast< std::ostream& (*)(std::ostream&) > ( &std::endl<char, std::char_traits<char> >)){
-            clend();
+            end();
         }else{
             func(clogMessage);
         }
         return *this;
     }
     
-    ofxLogger& clog(LogLevel l, string className, string funcName, int lineNum);
-    
-    void clend();
-    
+    ofxLogger& log(LogLevel l, string className, string funcName, int lineNum);
     void log(LogLevel l, string className, string funcName, int lineNum, string msg);
     
-	void setLogLevel(LogLevel l);
+	void setLogLevel(LogLevel l, string className, string funcName, int lineNum); // accepts dummy values so we can use the defines for logLevel!!!
     
     void setLogFilePath(string filePath);
     void setLogToFile(bool b, string filePath = ofToDataPath("log.txt"));
@@ -143,6 +132,8 @@ public:
     
 private:
 
+    void end();
+    
     bool openLogFile(string fileName);
     bool closeLogFile();
     
@@ -179,14 +170,13 @@ private:
 #include "assert.h"
 #include <cstdlib>
 template <class T>
-class Singleton
-{
+class Singleton{
 public:
     static T* Instance() {
         if(!m_pInstance) m_pInstance = new T;
         assert(m_pInstance !=NULL);
         return m_pInstance;
-    }
+    };
 protected:
     Singleton();
     ~Singleton();
@@ -195,13 +185,101 @@ private:
     Singleton& operator=(Singleton const&);
     static T* m_pInstance;
 };
-
 template <class T> T* Singleton<T>::m_pInstance=NULL;
-
 #endif
 
 typedef Singleton<ofxLogger> ofxLoggerSingleton;   // Global declaration
 
-static ofxLogger & ofxLog = *(ofxLoggerSingleton::Instance());
+static ofxLogger & _ofxLog = *(ofxLoggerSingleton::Instance()); // guess this could be an auto ptr
+
+// PUBLIC C-STYLE INTERFACE
+
+static void ofxLogSetLogLevel(LogLevel l, string className, string funcName, int lineNum){ // accepts dummy values so we can use the defines for logLevel!!!
+    _ofxLog.setLogLevel(l, className, funcName, lineNum);
+};
+
+static void ofxLogSetLogFilePath(string filePath){
+    _ofxLog.setLogFilePath(filePath);
+};
+
+static void ofxLogSetLogToFile(bool b, string filePath = ofToDataPath("log.txt")){
+    _ofxLog.setLogToFile(b, filePath);
+};
+
+static void ofxLogSetLogDate(bool b){
+    _ofxLog.setLogDate(b);
+};
+
+static void ofxLogSetLogTime(bool b){
+    _ofxLog.setLogTime(b);
+};
+
+static void ofxLogSetLogCaller(bool b){
+    _ofxLog.setLogCaller(b);
+};
+
+static void ofxLogSetLogType(bool b){
+    _ofxLog.setLogType(b);
+};
+
+static void ofxLogSetLogLineNumber(bool b){
+    _ofxLog.setLogLineNumber(b);
+};
+
+static void ofxLogSetLogTimeBetweenLogs(bool b){
+    _ofxLog.setLogTimeBetweenLogs(b);
+};
+
+static void ofxLogSetLogAutoPad(bool b){
+    _ofxLog.setLogAutoPad(b);
+};
+
+static void ofxLogSetLogOptions(int options){
+    _ofxLog.setLogOptions(options);
+};
+
+class ofxLog{
+    
+public:
+    
+    ofxLog(){};
+    
+    // catch << pipe operator
+    template <class T> 
+    ofxLog& operator<<(const T& value){
+        _ofxLog << value;
+        return *this;
+    }
+    
+    // catch the << ostream function pointers such as std::endl and std::hex
+    ofxLog& operator<<(std::ostream& (*func)(std::ostream&)){
+        // check if it's the std::endl 
+        // TODO: check if this is ok in VS - see: http://stackoverflow.com/questions/2319544/comparing-address-of-stdendl
+        _ofxLog << func;
+        return *this;
+    }
+    
+    ofxLog(LogLevel l, string className, string funcName, int lineNum){
+        _ofxLog.log(l, className, funcName, lineNum);
+    }
+    
+    ofxLog(LogLevel l, string className, string funcName, int lineNum, string msg){
+        _ofxLog.log(l, className, funcName, lineNum, msg);
+    };
+    
+    ofxLog(LogLevel l, string className, string funcName, int lineNum, const char* format, ...){
+        va_list args;
+        char buffer[256];
+        va_start( args, format );
+        vsprintf (buffer, format, args);
+        va_end( args );
+        _ofxLog.log(l, className, funcName, lineNum, string(buffer));
+    }
+    
+    ~ofxLog(){
+        //ofxLog.end(); // would force endlines as per ofLog but i like calling them explicitly :)
+    }
+    
+};
 
 #endif

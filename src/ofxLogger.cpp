@@ -39,8 +39,8 @@ ofxLogger::ofxLogger(){
     logFilePath = ofToDataPath("log.txt"); // default log file path
     padLength = 30; // default whitespace padding (auto adjust)
     logOptions =  LOG_USE_TIME | LOG_USE_CALL | LOG_USE_TYPE | LOG_USE_PADD; // defaults
-    log(LOG_NOTICE, typeid(this).name(), __func__, __LINE__, "/---------------------------------------------------\\");
-    log(LOG_NOTICE, typeid(this).name(), __func__, __LINE__, "Created logger");
+    log(LOG_NOTICE, "/---------------------------------------------------\\");
+    log(LOG_NOTICE, "Created logger");
     clogLevel = logLevel = LOG_WARNING;
 }
 
@@ -50,8 +50,8 @@ ofxLogger::~ofxLogger(){
     if ((logOptions & LOG_USE_FILE) == LOG_USE_FILE){
         closeLogFile();
     }
-    log(LOG_NOTICE, typeid(this).name(), __func__, __LINE__, "Logging off...");
-    log(LOG_NOTICE, typeid(this).name(), __func__, __LINE__, "\\___________________________________________________/");
+    log(LOG_NOTICE, "Logging off...");
+    log(LOG_NOTICE, "\\___________________________________________________/");
 }
 
 //--------------------------------------------------------------
@@ -59,16 +59,16 @@ bool ofxLogger::openLogFile(string filePath){
     
     if(logFile.is_open()) closeLogFile();
     
-    log(LOG_VERBOSE, typeid(this).name(), __func__, __LINE__, "Attempting to open log file..." + filePath);
+    log(LOG_VERBOSE, "Attempting to open log file..." + filePath);
     
     logFilePath = filePath;
     logFile.open(filePath.c_str(), ofstream::app);
 	
     if(logFile.good()){
-        log(LOG_NOTICE, typeid(this).name(), __func__, __LINE__, "Opening log file...");
+        log(LOG_NOTICE, "Opening log file...");
         return true;
     }else{
-        log(LOG_ERROR, typeid(this).name(), __func__, __LINE__, "Cannot open file");
+        log(LOG_ERROR, "Cannot open file");
         return false;
     }
     
@@ -79,21 +79,21 @@ bool ofxLogger::closeLogFile(){
     
     if(!logFile.is_open()) return false;
     
-    log(LOG_VERBOSE, typeid(this).name(), __func__, __LINE__, "Attempting to close log file..." + logFilePath);
+    log(LOG_VERBOSE, "Attempting to close log file..." + logFilePath);
 	
     logFile.close();
     
     if(!logFile.fail()){
-        log(LOG_NOTICE, typeid(this).name(), __func__, __LINE__, "...Closing log file");
+        log(LOG_NOTICE, "...Closing log file");
 		return true;
 	}else{
-        log(LOG_ERROR, typeid(this).name(), __func__, __LINE__, "Cannot close file");
+        log(LOG_ERROR, "Cannot close file");
         return false;
     }
 }
 
 //--------------------------------------------------------------
-ofxLogger& ofxLogger::clog(LogLevel l, string className, string funcName, int lineNum){
+ofxLogger& ofxLogger::log(LogLevel l, string className, string funcName, int lineNum){
     clogLevel = l;
     clogClass = className;
     clogFunc = funcName;
@@ -103,7 +103,7 @@ ofxLogger& ofxLogger::clog(LogLevel l, string className, string funcName, int li
 }
 
 //--------------------------------------------------------------
-void ofxLogger::clend(){
+void ofxLogger::end(){
     log(clogLevel, clogClass, clogFunc, clogLine, clogMessage.str());
 }
 
@@ -117,32 +117,32 @@ void ofxLogger::log(LogLevel l, string className, string funcName, int lineNum, 
     stringstream logMessage;
     
     // add date if option set
-    if ((logOptions & LOG_USE_DATE) == LOG_USE_DATE){
+    if((logOptions & LOG_USE_DATE) == LOG_USE_DATE){
         formatOptions(hasOptions, logMessage);
         logMessage << getDateStamp();
     }
     
     // add time if option set
-    if ((logOptions & LOG_USE_TIME) == LOG_USE_TIME){
+    if((logOptions & LOG_USE_TIME) == LOG_USE_TIME){
         formatOptions(hasOptions, logMessage);
         logMessage << getTimeStamp();
     }
     
     // add log level if option set
-    if ((logOptions & LOG_USE_TYPE) == LOG_USE_TYPE){
+    if((logOptions & LOG_USE_TYPE) == LOG_USE_TYPE){
         formatOptions(hasOptions, logMessage);
         logMessage << getLogLevelName(l);
     }
     
     // add function/class caller if option set
-    if ((logOptions & LOG_USE_CALL) == LOG_USE_CALL){
+    if((logOptions & LOG_USE_CALL) == LOG_USE_CALL){
         formatOptions(hasOptions, logMessage);
         string caller = className+"::"+funcName;
         logMessage << caller;
     }
     
     // add time between log calls if option set
-    if ((logOptions & LOG_USE_DIFF) == LOG_USE_DIFF){
+    if((logOptions & LOG_USE_DIFF) == LOG_USE_DIFF){
         formatOptions(hasOptions, logMessage);
         // calculate time between log calls - do it here?? or somewhere else??
         logMessage << ofGetElapsedTimeMicros() - lastLogTime;
@@ -150,7 +150,7 @@ void ofxLogger::log(LogLevel l, string className, string funcName, int lineNum, 
     }
     
     // add line number to log calls if option set
-    if ((logOptions & LOG_USE_LINE) == LOG_USE_LINE){
+    if((logOptions & LOG_USE_LINE) == LOG_USE_LINE){
         formatOptions(hasOptions, logMessage);
         logMessage << "# " << lineNum;
     }
@@ -160,7 +160,7 @@ void ofxLogger::log(LogLevel l, string className, string funcName, int lineNum, 
         logMessage << "]: ";
     }
     
-    if ((logOptions & LOG_USE_PADD) == LOG_USE_PADD){
+    if((logOptions & LOG_USE_PADD) == LOG_USE_PADD){
         pad(logMessage);
     }
     
@@ -174,10 +174,15 @@ void ofxLogger::log(LogLevel l, string className, string funcName, int lineNum, 
         logFile << logMessage.str();
     }
 
+    if(logLevel == _LOG_FATAL){
+        closeLogFile();
+        exit(0);
+    }
+    
 }
 
 //--------------------------------------------------------------
-void ofxLogger::setLogLevel(LogLevel l){
+void ofxLogger::setLogLevel(LogLevel l, string className, string funcName, int lineNum){ // accepts dummy values so we can use the defines for logLevel!!!
 	logLevel = l;
 }
 
@@ -296,15 +301,15 @@ inline void ofxLogger::pad(stringstream &logMessage){
 //--------------------------------------------------------------
 inline string ofxLogger::getLogLevelName(LogLevel l){
 	switch(l){
-		case LOG_VERBOSE:
+		case _LOG_VERBOSE:
 			return "VERB";
-		case LOG_NOTICE:
+		case _LOG_NOTICE:
 			return "NOTE";
-		case LOG_WARNING:
+		case _LOG_WARNING:
 			return "WARN";
-		case LOG_ERROR:
+		case _LOG_ERROR:
 			return "ERRR";
-		case LOG_FATAL_ERROR:
+		case _LOG_FATAL:
 			return "FATE";
 		default:
 			return "UNKO";
