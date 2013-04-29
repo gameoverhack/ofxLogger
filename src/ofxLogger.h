@@ -80,6 +80,7 @@ enum LogOption{
 #define ofxLogNotice() ofxLog(LOG_NOTICE)
 #define ofxLogVerbose() ofxLog(LOG_VERBOSE)
 #define ofxLogWarning() ofxLog(LOG_WARNING)
+#define ofxLogError() ofxLog(LOG_ERROR)
 #define ofxLogFatal() ofxLog(LOG_FATAL)
 
 // helper defines for different log levels
@@ -95,7 +96,7 @@ public:
     
     // catch << pipe operator
     template <class T> 
-    ofxLogger& operator<<(const T& value){
+    inline ofxLogger& operator<<(const T& value){
         clogMessage << value;// << padding; 
         return *this;
     }
