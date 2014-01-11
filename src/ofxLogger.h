@@ -85,6 +85,16 @@ enum LogOption{
 
 // helper defines for different log levels
 
+inline ostream& operator<<(ostream& os, ofRectangle &r){
+    os << "(" << r.x << ", " << r.y << ", " << r.width << ", " << r.height << ")";
+    return os;
+};
+
+inline ostream& operator<<(ostream& os, ofPoint &p){
+    os << "(" << p.x << ", " << p.y << ", " << p.z << ")";
+    return os;
+};
+
 using namespace std;
 
 class ofxLogger{
@@ -98,6 +108,22 @@ public:
     template <class T> 
     inline ofxLogger& operator<<(const T& value){
         clogMessage << value;// << padding; 
+        return *this;
+    }
+    
+    template <class T>
+    inline ofxLogger& operator<<(const vector<T> &value){
+        for(int i = 0; i < value.size(); i++){
+            clogMessage << value[i] << (i == value.size() - 1 ? "" : ", ");
+        }
+        return *this;
+    }
+
+    template <class T>
+    inline ofxLogger& operator<<(const deque<T> &value){
+        for(int i = 0; i < value.size(); i++){
+            clogMessage << value[i] << (i == value.size() - 1 ? "" : ", ");
+        }
         return *this;
     }
     
