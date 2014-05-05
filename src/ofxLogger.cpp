@@ -32,68 +32,202 @@
 
 #include "ofxLogger.h"
 
-//--------------------------------------------------------------
-ofxLogger::ofxLogger(){
-    clogLevel = logLevel = LOG_NOTICE;
-    clogClass = clogFunc = "";
-    logFilePath = ofToDataPath("log.txt"); // default log file path
-    padLength = 30; // default whitespace padding (auto adjust)
-    logOptions =  LOG_USE_TIME | LOG_USE_CALL | LOG_USE_TYPE | LOG_USE_PADD; // defaults
-    log(LOG_NOTICE, "/---------------------------------------------------\\");
-    log(LOG_NOTICE, "Created logger");
-    clogLevel = logLevel = LOG_WARNING;
+// PUBLIC C-STYLE INTERFACE
+static LogLevel clogLevel = _LOG_NOTICE;
+static LogLevel logLevel = _LOG_NOTICE;
+static int logOptions = LOG_USE_TIME | LOG_USE_CALL | LOG_USE_TYPE | LOG_USE_PADD;;
+static int lastLogTime;
+static string logFilePath = ofToDataPath("log.txt");
+static ofstream logFile;
+static int padLength = 30;
+
+static map<string, LogLevel>& getModules(){
+    static map<string, LogLevel> * modules = new map<string, LogLevel>;
+    return *modules;
 }
 
 //--------------------------------------------------------------
-ofxLogger::~ofxLogger(){
-    clogLevel = logLevel = LOG_NOTICE;
-    if ((logOptions & LOG_USE_FILE) == LOG_USE_FILE){
-        closeLogFile();
+bool ofxLogCloseLogFile(){
+    
+    if(!logFile.is_open()) return false;
+    
+    //ofxLog(LOG_VERBOSE, "Attempting to close log file..." + logFilePath);
+	
+    logFile.close();
+    
+    if(!logFile.fail()){
+        //ofxLog(LOG_NOTICE, "...Closing log file");
+		return true;
+	}else{
+        //ofxLog(LOG_ERROR, "Cannot close file");
+        return false;
     }
-    log(LOG_NOTICE, "Logging off...");
-    log(LOG_NOTICE, "\\___________________________________________________/");
 }
 
 //--------------------------------------------------------------
-bool ofxLogger::openLogFile(string filePath){
+bool ofxLogOpenLogFile(string filePath){
     
-    if(logFile.is_open()) closeLogFile();
+    if(logFile.is_open()) ofxLogCloseLogFile();
     
-    log(LOG_VERBOSE, "Attempting to open log file..." + filePath);
+    //ofxLog(LOG_VERBOSE, "Attempting to open log file..." + filePath);
     
     logFilePath = filePath;
     logFile.open(filePath.c_str(), ofstream::app);
 	
     if(logFile.good()){
-        log(LOG_NOTICE, "Opening log file...");
+        //ofxLog(LOG_NOTICE, "Opening log file...");
         return true;
     }else{
-        log(LOG_ERROR, "Cannot open file");
+        //ofxLog(LOG_ERROR, "Cannot open file");
         return false;
     }
     
 }
 
 //--------------------------------------------------------------
-bool ofxLogger::closeLogFile(){
-    
-    if(!logFile.is_open()) return false;
-    
-    log(LOG_VERBOSE, "Attempting to close log file..." + logFilePath);
-	
-    logFile.close();
-    
-    if(!logFile.fail()){
-        log(LOG_NOTICE, "...Closing log file");
-		return true;
-	}else{
-        log(LOG_ERROR, "Cannot close file");
-        return false;
+void ofxLogSetLogLevel(LogLevel l, string className, string funcName, int lineNum){ // accepts dummy values so we can use the defines for logLevel!!!
+	logLevel = l;
+}
+
+//--------------------------------------------------------------
+void ofxLogSetLogLevel(LogLevel l, string className, string funcName, int lineNum, void * t){ // accepts dummy values so we can use the defines for logLevel!!!
+    getModules()[className] = l;
+}
+
+//--------------------------------------------------------------
+void ofxLogSetLogFilePath(string filePath){
+    logFilePath = filePath;
+}
+
+//--------------------------------------------------------------
+void ofxLogSetLogToFile(bool b, string filePath){
+    if(b){
+        // maybe need to check logFilePath for != "" and != filePath ???
+        logOptions |= LOG_USE_FILE;
+        ofxLogOpenLogFile(logFilePath);
+    }else{
+        logOptions &= ~LOG_USE_FILE;
+        ofxLogCloseLogFile();
     }
 }
 
 //--------------------------------------------------------------
-ofxLogger& ofxLogger::log(LogLevel l, string className, string funcName, int lineNum){
+void ofxSetLogDate(bool b){
+    if(b){
+        logOptions |= LOG_USE_DATE;
+    }else{
+        logOptions &= ~LOG_USE_DATE;
+    }
+}
+
+//--------------------------------------------------------------
+void ofxSetLogTime(bool b){
+    if(b){
+        logOptions |= LOG_USE_TIME;
+    }else{
+        logOptions &= ~LOG_USE_TIME;
+    }
+}
+
+//--------------------------------------------------------------
+void ofxSetLogCaller(bool b){
+    if(b){
+        logOptions |= LOG_USE_CALL;
+    }else{
+        logOptions &= ~LOG_USE_CALL;
+    }
+}
+
+//--------------------------------------------------------------
+void ofxSetLogType(bool b){
+    if(b){
+        logOptions |= LOG_USE_TYPE;
+    }else{
+        logOptions &= ~LOG_USE_TYPE;
+    }
+}
+
+//--------------------------------------------------------------
+void ofxSetLogLineNumber(bool b){
+    if(b){
+        logOptions |= LOG_USE_LINE;
+    }else{
+        logOptions &= ~LOG_USE_LINE;
+    }
+}
+
+//--------------------------------------------------------------
+void ofxSetLogTimeBetweenLogs(bool b){
+    if(b){
+        logOptions |= LOG_USE_DIFF;
+    }else{
+        logOptions &= ~LOG_USE_DIFF;
+    }
+}
+
+//--------------------------------------------------------------
+void ofxSetLogAutoPad(bool b){
+    if(b){
+        logOptions |= LOG_USE_PADD;
+    }else{
+        logOptions &= ~LOG_USE_PADD;
+    }
+}
+
+//--------------------------------------------------------------
+void ofxSetLogOptions(int options){
+    
+    // check if we need to start or stop logging to file
+    if ((logOptions & LOG_USE_FILE) == LOG_USE_FILE && (options & LOG_USE_FILE) != LOG_USE_FILE){
+        ofxLogCloseLogFile();
+    }
+    if ((logOptions & LOG_USE_FILE) != LOG_USE_FILE && (options & LOG_USE_FILE) == LOG_USE_FILE){
+        ofxLogOpenLogFile(logFilePath);
+    }
+    
+    logOptions = options;
+}
+
+//--------------------------------------------------------------
+ofxLog::ofxLog(){
+    clogLevel = logLevel;
+    clogClass = "";
+    clogFunc = "";
+    clogLine = -1;
+    clogMessage.clear();
+    bLogged = false;
+}
+
+//--------------------------------------------------------------
+ofxLog::ofxLog(LogLevel l, string className, string funcName, int lineNum){
+    bLogged = false;
+    log(l, className, funcName, lineNum);
+}
+
+//--------------------------------------------------------------
+ofxLog::ofxLog(LogLevel l, string className, string funcName, int lineNum, string msg){
+    bLogged = false;
+    log(l, className, funcName, lineNum, msg);
+};
+
+//--------------------------------------------------------------
+ofxLog::ofxLog(LogLevel l, string className, string funcName, int lineNum, const char* format, ...){
+    bLogged = false;
+    va_list args;
+    char buffer[256];
+    va_start( args, format );
+    vsprintf (buffer, format, args);
+    va_end( args );
+    log(l, className, funcName, lineNum, string(buffer));
+}
+
+//--------------------------------------------------------------
+ofxLog::~ofxLog(){
+    if(!bLogged) log(clogLevel, clogClass, clogFunc, clogLine, clogMessage.str());
+}
+
+//--------------------------------------------------------------
+ofxLog& ofxLog::log(LogLevel l, string className, string funcName, int lineNum){
     clogLevel = l;
     clogClass = className;
     clogFunc = funcName;
@@ -103,14 +237,13 @@ ofxLogger& ofxLogger::log(LogLevel l, string className, string funcName, int lin
 }
 
 //--------------------------------------------------------------
-void ofxLogger::end(){
-    log(clogLevel, clogClass, clogFunc, clogLine, clogMessage.str());
-}
-
-//--------------------------------------------------------------
-void ofxLogger::log(LogLevel l, string className, string funcName, int lineNum, string msg){
+void ofxLog::log(LogLevel l, string className, string funcName, int lineNum, string msg){
 	
-	if(l < logLevel) return;
+    if(getModules().find(className) == getModules().end()){
+        if(l < logLevel) return;
+	}else{
+		if(l < getModules()[className]) return;
+	}
     
     bool hasOptions = false;
     
@@ -164,10 +297,16 @@ void ofxLogger::log(LogLevel l, string className, string funcName, int lineNum, 
         pad(logMessage);
     }
     
-	logMessage << msg.c_str() << "\n";
+	logMessage << msg.c_str();// << "\n";
+    
+    if((logOptions & LOG_USE_CRRT) == LOG_USE_CRRT){
+        logMessage << "\n";
+    }
     
     // log to console
     cout << logMessage.str();
+    
+    bLogged = true;
     
     // log to file
     if ((logOptions & LOG_USE_FILE) == LOG_USE_FILE){
@@ -175,114 +314,14 @@ void ofxLogger::log(LogLevel l, string className, string funcName, int lineNum, 
     }
 
     if(logLevel == _LOG_FATAL){
-        closeLogFile();
+        ofxLogCloseLogFile();
         exit(0);
     }
     
 }
 
 //--------------------------------------------------------------
-void ofxLogger::setLogLevel(LogLevel l, string className, string funcName, int lineNum){ // accepts dummy values so we can use the defines for logLevel!!!
-	logLevel = l;
-}
-
-//--------------------------------------------------------------
-void ofxLogger::setLogFilePath(string filePath){
-    logFilePath = filePath;
-}
-
-//--------------------------------------------------------------
-void ofxLogger::setLogToFile(bool b, string filePath){
-    if(b){
-        // maybe need to check logFilePath for != "" and != filePath ???
-        openLogFile(filePath);
-        logOptions |= LOG_USE_FILE;
-    }else{
-        closeLogFile();
-        logOptions &= ~LOG_USE_FILE;
-    }
-}
-
-//--------------------------------------------------------------
-void ofxLogger::setLogDate(bool b){
-    if(b){
-        logOptions |= LOG_USE_DATE;
-    }else{
-        logOptions &= ~LOG_USE_DATE;
-    }
-}
-
-//--------------------------------------------------------------
-void ofxLogger::setLogTime(bool b){
-    if(b){
-        logOptions |= LOG_USE_TIME;
-    }else{
-        logOptions &= ~LOG_USE_TIME;
-    }
-}
-
-//--------------------------------------------------------------
-void ofxLogger::setLogCaller(bool b){
-    if(b){
-        logOptions |= LOG_USE_CALL;
-    }else{
-        logOptions &= ~LOG_USE_CALL;
-    }
-}
-
-//--------------------------------------------------------------
-void ofxLogger::setLogType(bool b){
-    if(b){
-        logOptions |= LOG_USE_TYPE;
-    }else{
-        logOptions &= ~LOG_USE_TYPE;
-    }
-}
-
-//--------------------------------------------------------------
-void ofxLogger::setLogLineNumber(bool b){
-    if(b){
-        logOptions |= LOG_USE_LINE;
-    }else{
-        logOptions &= ~LOG_USE_LINE;
-    }
-}
-
-//--------------------------------------------------------------
-void ofxLogger::setLogTimeBetweenLogs(bool b){
-    if(b){
-        logOptions |= LOG_USE_DIFF;
-    }else{
-        logOptions &= ~LOG_USE_DIFF;
-    }
-}
-
-//--------------------------------------------------------------
-void ofxLogger::setLogAutoPad(bool b){
-    if(b){
-        logOptions |= LOG_USE_PADD;
-    }else{
-        logOptions &= ~LOG_USE_PADD;
-    }
-}
-
-
-//--------------------------------------------------------------
-void ofxLogger::setLogOptions(int options){
-    
-    // check if we need to start or stop logging to file
-    if ((logOptions & LOG_USE_FILE) == LOG_USE_FILE && (options & LOG_USE_FILE) != LOG_USE_FILE){
-        closeLogFile();
-    }
-    if ((logOptions & LOG_USE_FILE) != LOG_USE_FILE && (options & LOG_USE_FILE) == LOG_USE_FILE){
-        openLogFile(logFilePath);
-    }
-    
-    logOptions = options;
-}
-
-//--------------------------------------------------------------
-inline void ofxLogger::pad(stringstream &logMessage){
+inline void ofxLog::pad(stringstream &logMessage){
 	
     // add whitespace as difference between last log message 
     // length and padLength (using options only not msg)
@@ -299,7 +338,7 @@ inline void ofxLogger::pad(stringstream &logMessage){
 }
 
 //--------------------------------------------------------------
-inline string ofxLogger::getLogLevelName(LogLevel l){
+inline string ofxLog::getLogLevelName(LogLevel l){
 	switch(l){
 		case _LOG_VERBOSE:
 			return "VERB";
@@ -317,7 +356,7 @@ inline string ofxLogger::getLogLevelName(LogLevel l){
 }
 
 //--------------------------------------------------------------
-inline void ofxLogger::formatOptions(bool &hasOptions, stringstream &logMessage){
+inline void ofxLog::formatOptions(bool &hasOptions, stringstream &logMessage){
     if(!hasOptions){
         hasOptions = true;
         logMessage << "[";
@@ -327,13 +366,13 @@ inline void ofxLogger::formatOptions(bool &hasOptions, stringstream &logMessage)
 }
 
 //--------------------------------------------------------------
-inline char * ofxLogger::getTimeStamp(){
+inline char * ofxLog::getTimeStamp(){
     sprintf(timestamp, "%02i:%02i:%02i", ofGetHours(),  ofGetMinutes(), ofGetSeconds());
     return timestamp;
 }
 
 //--------------------------------------------------------------
-inline char * ofxLogger::getDateStamp(){
+inline char * ofxLog::getDateStamp(){
     sprintf(datestamp, "%02i/%02i/%i", ofGetDay(), ofGetMonth(), ofGetYear());
     return datestamp;
 }
